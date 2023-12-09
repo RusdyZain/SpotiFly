@@ -52,6 +52,6 @@ SpotiFly adalah aplikasi pemutar musik berbasis Java yang menyediakan antarmuka 
 - Kit Pengembangan Java (JDK)
 - Server MySQL
 
-## Tangkapan Layar
+## Screenshot
 
 <img src="Music\Thumbnail\Demo.png" alt="SpotiFly Screenshot" width="600">
