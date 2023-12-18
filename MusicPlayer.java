@@ -55,6 +55,8 @@ public class MusicPlayer extends JFrame implements ActionListener {
 	private JLabel titleLabel;
 	private JLabel artistLabel;
 
+	private JMenuItem openPlaylistMenuItem;
+
 	public class DatabaseConnection {
 		private static final String URL = "jdbc:mysql://localhost:3306/sportifly";
 		private static final String USER = "root";
@@ -269,6 +271,16 @@ public class MusicPlayer extends JFrame implements ActionListener {
 		Font externalFont = loadExternalFont("Font\\GothamBold.ttf", 16f);
 		setUIFont(externalFont);
 
+		JMenuBar menuBar = new JMenuBar();
+		setJMenuBar(menuBar);
+
+		JMenu fileMenu = new JMenu("File");
+		menuBar.add(fileMenu);
+
+		openPlaylistMenuItem = new JMenuItem("Open Playlist");
+		openPlaylistMenuItem.addActionListener(this);
+		fileMenu.add(openPlaylistMenuItem);
+
 		updateSelectedSongAppearance(songFilePos);
 	}
 
@@ -289,6 +301,67 @@ public class MusicPlayer extends JFrame implements ActionListener {
 		if (event.getSource() == shuffleButton) {
 			shuffle();
 		}
+		if (event.getSource() == openPlaylistMenuItem) {
+			showPlaylistPopup();
+		}
+	}
+
+	private void showPlaylistPopup() {
+		String[] songNames = new String[numSongs];
+		for (int i = 0; i < numSongs; i++) {
+			songNames[i] = getSongTitleFromDatabase(songFileList.get(i).getPath());
+		}
+
+		String selectedSong = (String) JOptionPane.showInputDialog(
+				this,
+				"Choose a song:",
+				"Open Playlist",
+				JOptionPane.QUESTION_MESSAGE,
+				null,
+				songNames,
+				songNames[0]);
+
+		int selectedIndex = -1;
+		for (int i = 0; i < numSongs; i++) {
+			String songTitle = getSongTitleFromDatabase(songFileList.get(i).getPath());
+			if (songTitle.equals(selectedSong)) {
+				selectedIndex = i;
+				break;
+			}
+		}
+
+		if (selectedIndex != -1) {
+			audioPlayer.stop();
+			songFilePos = selectedIndex;
+			loadAndPlayNewSong();
+			updateSelectedSongAppearance(selectedIndex);
+
+			String songFilePath = songFileList.get(songFilePos).getPath();
+			String songTitle = getSongTitleFromDatabase(songFilePath);
+			String songArtist = getSongArtistFromDatabase(songFilePath);
+
+			titleLabel.setText(songTitle);
+			artistLabel.setText(songArtist);
+		}
+	}
+
+	private String getSongTitleFromDatabase(String filePath) {
+		String title = "";
+		try (Connection connection = new DatabaseConnection().getConnection()) {
+			String query = "SELECT title FROM songs WHERE file_path = ?";
+			try (PreparedStatement preparedStatement = connection.prepareStatement(query)) {
+				preparedStatement.setString(1, filePath.replace("\\", "/"));
+
+				try (ResultSet resultSet = preparedStatement.executeQuery()) {
+					if (resultSet.next()) {
+						title = resultSet.getString("title");
+					}
+				}
+			}
+		} catch (SQLException e) {
+			e.printStackTrace();
+		}
+		return title;
 	}
 
 	private void updateSelectedSongAppearance(int selectedIdx) {
@@ -511,31 +584,12 @@ public class MusicPlayer extends JFrame implements ActionListener {
 		}
 	}
 
-	private String getSongTitleFromDatabase(String filePath) {
-		String title = "";
-		try (Connection connection = new DatabaseConnection().getConnection()) {
-			String query = "SELECT title FROM songs WHERE file_path = ?";
-			try (PreparedStatement preparedStatement = connection.prepareStatement(query)) {
-				preparedStatement.setString(1, filePath.replace("\\", "/"));
-
-				try (ResultSet resultSet = preparedStatement.executeQuery()) {
-					if (resultSet.next()) {
-						title = resultSet.getString("title");
-					}
-				}
-			}
-		} catch (SQLException e) {
-			e.printStackTrace();
-		}
-		return title;
-	}
-
 	private String getSongArtistFromDatabase(String filePath) {
 		String artist = "";
 		try (Connection connection = new DatabaseConnection().getConnection()) {
 			String query = "SELECT artist FROM songs WHERE file_path = ?";
 			try (PreparedStatement preparedStatement = connection.prepareStatement(query)) {
-				preparedStatement.setString(1, filePath.replace(File.separator, "/"));
+				preparedStatement.setString(1, filePath.replace("\\", "/"));
 
 				try (ResultSet resultSet = preparedStatement.executeQuery()) {
 					if (resultSet.next()) {
@@ -670,7 +724,6 @@ public class MusicPlayer extends JFrame implements ActionListener {
 		SwingUtilities.invokeLater(() -> {
 			MusicPlayer musicPlayer = new MusicPlayer();
 			try {
-				musicPlayer.loadSongsFromDatabase();
 				Font titleFont = musicPlayer.loadExternalFont("Font/GothamBold.ttf", 25f);
 				Font artistFont = musicPlayer.loadExternalFont("Font/GothamMedium.ttf", 14f);
 
