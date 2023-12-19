@@ -3,7 +3,6 @@ import javax.swing.event.ListSelectionEvent;
 import javax.swing.event.ListSelectionListener;
 import javax.swing.filechooser.*;
 import javax.swing.plaf.ColorUIResource;
-
 import java.awt.*;
 import java.awt.event.*;
 import java.io.*;
@@ -14,6 +13,7 @@ import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.awt.geom.RoundRectangle2D;
 
 public class MusicPlayer extends JFrame implements ActionListener {
 
@@ -56,8 +56,11 @@ public class MusicPlayer extends JFrame implements ActionListener {
 	private JLabel imageLabel;
 	private JLabel titleLabel;
 	private JLabel artistLabel;
+	private ImageIcon userProfileIcon;
+	private JLabel userProfileLabel;
 
 	private JMenuItem openPlaylistMenuItem;
+	private boolean isLoggedIn;
 
 	public class DatabaseConnection {
 		private static final String URL = "jdbc:mysql://localhost:3306/sportifly";
@@ -105,6 +108,7 @@ public class MusicPlayer extends JFrame implements ActionListener {
 		super("SpotiFly");
 		setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
 		setLayout(null);
+		isLoggedIn = false;
 
 		songFileList = new ArrayList<>();
 		fileChooser = new JFileChooser(".");
@@ -166,7 +170,6 @@ public class MusicPlayer extends JFrame implements ActionListener {
 		buttonPanel.add(playButton);
 		buttonPanel.add(nextButton);
 		buttonPanel.add(loopButton);
-
 		add(buttonPanel);
 
 		songList = new JList<>();
@@ -265,6 +268,26 @@ public class MusicPlayer extends JFrame implements ActionListener {
 		artistLabel.setFont(loadExternalFont("Font/GothamLight.ttf", 14f));
 		add(artistLabel);
 
+		userProfileIcon = new ImageIcon("User/rusdy.jpg");
+		Image userProfileImage = userProfileIcon.getImage().getScaledInstance(50, 50, Image.SCALE_SMOOTH);
+		userProfileIcon = new ImageIcon(userProfileImage);
+
+		userProfileLabel = new JLabel(userProfileIcon) {
+			@Override
+			protected void paintComponent(Graphics g) {
+				Graphics2D g2d = (Graphics2D) g.create();
+				int width = getWidth();
+				int height = getHeight();
+				RoundRectangle2D roundedRectangle = new RoundRectangle2D.Float(0, 0, width, height, width, height);
+				g2d.setClip(roundedRectangle);
+				super.paintComponent(g2d);
+				g2d.dispose();
+			}
+		};
+
+		userProfileLabel.setBounds(420, 10, 50, 50);
+		add(userProfileLabel);
+
 		getContentPane().setBackground(new Color(0x191414));
 		setSize(500, 890);
 		setLocationRelativeTo(null);
@@ -292,6 +315,8 @@ public class MusicPlayer extends JFrame implements ActionListener {
 		loginMenuItem.addActionListener(this);
 		fileMenu.add(loginMenuItem);
 
+		getContentPane().add(userProfileLabel);
+
 		updateSelectedSongAppearance(songFilePos);
 	}
 
@@ -317,10 +342,6 @@ public class MusicPlayer extends JFrame implements ActionListener {
 		} else if (event.getActionCommand().equals("Login")) {
 			openLoginDialog();
 		}
-	}
-
-	private void openLoginDialog() {
-		new LoginGUI(this);
 	}
 
 	public void closeMediaPlayer() {
@@ -584,24 +605,73 @@ public class MusicPlayer extends JFrame implements ActionListener {
 	}
 
 	private void toggleLoop() {
-		isLooping = !isLooping;
-		audioPlayer.setLoop(isLooping);
-		loopButton.setIcon(isLooping ? loopIcon : unloopIcon);
+		if (isLoggedIn) {
+			isLooping = !isLooping;
+			audioPlayer.setLoop(isLooping);
+			loopButton.setIcon(isLooping ? loopIcon : unloopIcon);
 
-		System.out.println("Toggle Looping: " + isLooping);
+			System.out.println("Toggle Looping: " + isLooping);
+		} else {
+			JOptionPane.showMessageDialog(this, "Please login to use this feature.");
+		}
+
 	}
 
 	private void shuffle() {
-		isShuffle = !isShuffle;
-		audioPlayer.stop();
-		Random rand = new Random();
-		shuffleButton.setIcon(isShuffle ? unShuffleIcon : shuffleIcon);
-		songFilePos = rand.nextInt(numSongs);
-		currentlyPlayingIndex = songFilePos;
-		loadAndPlayNewSong();
+		if (isLoggedIn) {
+			isShuffle = !isShuffle;
+			audioPlayer.stop();
+			Random rand = new Random();
+			shuffleButton.setIcon(isShuffle ? unShuffleIcon : shuffleIcon);
+			songFilePos = rand.nextInt(numSongs);
+			currentlyPlayingIndex = songFilePos;
+			loadAndPlayNewSong();
 
-		System.out.println("Toggle Shuffle: " + isShuffle);
-		System.out.println("Shuffled Song: " + songFileList.get(songFilePos).getName());
+			System.out.println("Toggle Shuffle: " + isShuffle);
+			System.out.println("Shuffled Song: " + songFileList.get(songFilePos).getName());
+		} else {
+			JOptionPane.showMessageDialog(this, "Please login to use this feature.");
+		}
+	}
+
+	private boolean checkLogin(String username, String password) {
+		try {
+			Class.forName("com.mysql.cj.jdbc.Driver");
+
+			String url = "jdbc:mysql://localhost:3306/sportifly";
+			String user = "root";
+			String dbPassword = "";
+			try (Connection connection = DriverManager.getConnection(url, user, dbPassword)) {
+				String sql = "SELECT * FROM user WHERE username = ? AND password = ?";
+				try (PreparedStatement statement = connection.prepareStatement(sql)) {
+					statement.setString(1, username);
+					statement.setString(2, password);
+
+					try (ResultSet resultSet = statement.executeQuery()) {
+						return resultSet.next();
+					}
+				}
+			}
+		} catch (ClassNotFoundException | SQLException ex) {
+			ex.printStackTrace();
+			return false;
+		}
+	}
+
+	public void login(String username, String password) {
+		boolean isValidLogin = checkLogin(username, password);
+
+		if (isValidLogin) {
+			isLoggedIn = true;
+			JOptionPane.showMessageDialog(this, "Login successful!");
+		} else {
+			JOptionPane.showMessageDialog(this, "Invalid username or password. Please try again.");
+		}
+	}
+
+	private void openLoginDialog() {
+		LoginGUI loginDialog = new LoginGUI(this);
+		loginDialog.setVisible(true);
 	}
 
 	private void loadAndPlayNewSong() {

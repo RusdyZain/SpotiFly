@@ -2,6 +2,12 @@ import javax.swing.*;
 import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.util.Arrays;
 
 public class LoginGUI extends JFrame implements ActionListener {
 
@@ -34,8 +40,9 @@ public class LoginGUI extends JFrame implements ActionListener {
 
         loginButton = new JButton("Login");
         loginButton.setBounds(200, 280, 100, 25);
-        loginButton.addActionListener(this);
         add(loginButton);
+
+        loginButton.addActionListener(this);
 
         getContentPane().setBackground(new Color(0x191414));
         setSize(500, 890);
@@ -46,12 +53,15 @@ public class LoginGUI extends JFrame implements ActionListener {
 
     public void actionPerformed(ActionEvent e) {
         if (e.getSource() == loginButton) {
-            String username = usernameField.getText();
-            String password = new String(passwordField.getPassword());
+            String username = usernameField.getText().trim();
+            char[] passwordChars = passwordField.getPassword();
+            String password = new String(passwordChars).trim();
 
-            if ("admin".equals(username) && "123".equals(password)) {
+            boolean isValidLogin = checkLogin(username, password);
+
+            if (isValidLogin) {
                 JOptionPane.showMessageDialog(this, "Login successful!");
-
+                musicPlayer.login(username, password);
                 musicPlayer.closeMediaPlayer();
                 musicPlayer.setVisible(true);
 
@@ -59,7 +69,32 @@ public class LoginGUI extends JFrame implements ActionListener {
             } else {
                 JOptionPane.showMessageDialog(this, "Invalid username or password. Please try again.");
             }
+
+            Arrays.fill(passwordChars, ' ');
         }
     }
 
+    private boolean checkLogin(String username, String password) {
+        try {
+            Class.forName("com.mysql.cj.jdbc.Driver");
+
+            String url = "jdbc:mysql://localhost:3306/sportifly";
+            String user = "root";
+            String dbPassword = "";
+            try (Connection connection = DriverManager.getConnection(url, user, dbPassword)) {
+                String sql = "SELECT * FROM user WHERE username = ? AND password = ?";
+                try (PreparedStatement statement = connection.prepareStatement(sql)) {
+                    statement.setString(1, username);
+                    statement.setString(2, password);
+
+                    try (ResultSet resultSet = statement.executeQuery()) {
+                        return resultSet.next();
+                    }
+                }
+            }
+        } catch (ClassNotFoundException | SQLException ex) {
+            ex.printStackTrace();
+            return false;
+        }
+    }
 }
