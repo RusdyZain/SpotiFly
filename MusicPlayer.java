@@ -229,8 +229,19 @@ public class MusicPlayer extends JFrame implements ActionListener {
 		progressBar.setBounds(50, 698, 400, 5);
 		progressBar.setForeground(Color.WHITE);
 		progressBar.setBackground(new Color(0x191414));
-
 		add(progressBar);
+
+		progressBar.addMouseListener(new MouseAdapter() {
+			@Override
+			public void mouseClicked(MouseEvent e) {
+				int mouseX = e.getX();
+				int progressBarWidth = progressBar.getWidth();
+				long newPosition = (long) ((double) mouseX / progressBarWidth
+						* audioPlayer.getClip().getMicrosecondLength());
+				audioPlayer.playFromPosition(newPosition);
+				progressBar.setValue((int) newPosition);
+			}
+		});
 
 		currentTimeLabel = new JLabel();
 		currentTimeLabel.setBounds(50, 705, 50, 20);
@@ -259,12 +270,6 @@ public class MusicPlayer extends JFrame implements ActionListener {
 		setLocationRelativeTo(null);
 		setResizable(false);
 		setVisible(true);
-
-		try {
-			audioPlayer.load(firstSong.getPath());
-		} catch (Exception e) {
-			e.printStackTrace();
-		}
 
 		Font externalFont = loadExternalFont("Font\\GothamBold.ttf", 16f);
 		setUIFont(externalFont);
@@ -441,38 +446,38 @@ public class MusicPlayer extends JFrame implements ActionListener {
 	private void togglePlay(int i) {
 		System.out.println("Toggle Play: " + i);
 		System.out.println("Is Paused: " + isPaused);
-		if (audioPlayer != null && audioPlayer.getClip() != null) {
-			if (audioPlayer.isRunning()) {
-				audioPlayer.stop();
-				isPaused = true;
-				playButton.setIcon(playIcon);
-			} else {
-				if (!isPaused) {
-					if (audioPlayer.getClip() != null) {
-						if (isShuffle) {
-							songFilePos = i;
-						}
-						loadAndPlayNewSong();
-						startTimer();
-						playButton.setIcon(pauseIcon);
-						currentlyPlayingIndex = i;
-						isPaused = false;
-					}
-				} else {
-					audioPlayer.resume();
-					playButton.setIcon(pauseIcon);
-				}
-			}
 
+		// Periksa apakah sudah ada lagu yang diputar
+		boolean isSongPlaying = audioPlayer != null && audioPlayer.isRunning();
+
+		if (isSongPlaying) {
+			audioPlayer.stop();
+			isPaused = true;
+			playButton.setIcon(playIcon);
+		} else {
 			if (!isPaused) {
-				updateSelectedSongAppearance(i);
+				if (numSongs > 0) {
+					songFilePos = 0;
+					loadAndPlayNewSong();
+					startTimer();
+					playButton.setIcon(pauseIcon);
+					currentlyPlayingIndex = 0;
+					isPaused = false;
+				}
 			} else {
-				i = currentlyPlayingIndex;
+				audioPlayer.resume();
+				playButton.setIcon(pauseIcon);
 			}
-
-			System.out.println("Last Valid Position: " + audioPlayer.getLastValidPosition());
-			System.out.println("Is Paused: " + isPaused);
 		}
+
+		if (!isPaused) {
+			updateSelectedSongAppearance(songFilePos);
+		} else {
+			updateSelectedSongAppearance(currentlyPlayingIndex);
+		}
+
+		System.out.println("Last Valid Position: " + audioPlayer.getLastValidPosition());
+		System.out.println("Is Paused: " + isPaused);
 	}
 
 	private void next() {
