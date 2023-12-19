@@ -288,6 +288,10 @@ public class MusicPlayer extends JFrame implements ActionListener {
 		openPlaylistMenuItem.addActionListener(this);
 		fileMenu.add(openPlaylistMenuItem);
 
+		JMenuItem loginMenuItem = new JMenuItem("Login");
+		loginMenuItem.addActionListener(this);
+		fileMenu.add(loginMenuItem);
+
 		updateSelectedSongAppearance(songFilePos);
 	}
 
@@ -310,7 +314,17 @@ public class MusicPlayer extends JFrame implements ActionListener {
 		}
 		if (event.getSource() == openPlaylistMenuItem) {
 			showPlaylistPopup();
+		} else if (event.getActionCommand().equals("Login")) {
+			openLoginDialog();
 		}
+	}
+
+	private void openLoginDialog() {
+		new LoginGUI(this);
+	}
+
+	public void closeMediaPlayer() {
+		dispose();
 	}
 
 	private void showPlaylistPopup() {
@@ -447,7 +461,6 @@ public class MusicPlayer extends JFrame implements ActionListener {
 		System.out.println("Toggle Play: " + i);
 		System.out.println("Is Paused: " + isPaused);
 
-		// Periksa apakah sudah ada lagu yang diputar
 		boolean isSongPlaying = audioPlayer != null && audioPlayer.isRunning();
 
 		if (isSongPlaying) {
