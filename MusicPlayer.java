@@ -2,6 +2,8 @@ import javax.swing.*;
 import javax.swing.event.ListSelectionEvent;
 import javax.swing.event.ListSelectionListener;
 import javax.swing.filechooser.*;
+import javax.swing.plaf.ColorUIResource;
+
 import java.awt.*;
 import java.awt.event.*;
 import java.io.*;
@@ -258,10 +260,6 @@ public class MusicPlayer extends JFrame implements ActionListener {
 		setResizable(false);
 		setVisible(true);
 
-		File firstSong = new File("Music/1.wav");
-		songFileList.add(firstSong);
-		numSongs = songFileList.size();
-
 		try {
 			audioPlayer.load(firstSong.getPath());
 		} catch (Exception e) {
@@ -272,10 +270,14 @@ public class MusicPlayer extends JFrame implements ActionListener {
 		setUIFont(externalFont);
 
 		JMenuBar menuBar = new JMenuBar();
+		menuBar.setBackground(Color.BLACK);
 		setJMenuBar(menuBar);
 
-		JMenu fileMenu = new JMenu("File");
+		JMenu fileMenu = new JMenu();
 		menuBar.add(fileMenu);
+
+		ImageIcon fileIcon = new ImageIcon("pngs/Menu.png");
+		fileMenu.setIcon(fileIcon);
 
 		openPlaylistMenuItem = new JMenuItem("Open Playlist");
 		openPlaylistMenuItem.addActionListener(this);
@@ -308,40 +310,78 @@ public class MusicPlayer extends JFrame implements ActionListener {
 
 	private void showPlaylistPopup() {
 		String[] songNames = new String[numSongs];
-		for (int i = 0; i < numSongs; i++) {
-			songNames[i] = getSongTitleFromDatabase(songFileList.get(i).getPath());
-		}
 
-		String selectedSong = (String) JOptionPane.showInputDialog(
-				this,
-				"Choose a song:",
-				"Open Playlist",
-				JOptionPane.QUESTION_MESSAGE,
-				null,
-				songNames,
-				songNames[0]);
-
-		int selectedIndex = -1;
 		for (int i = 0; i < numSongs; i++) {
 			String songTitle = getSongTitleFromDatabase(songFileList.get(i).getPath());
-			if (songTitle.equals(selectedSong)) {
-				selectedIndex = i;
-				break;
-			}
+			String artistName = getSongArtistFromDatabase(songFileList.get(i).getPath());
+			songNames[i] = songTitle + " - " + artistName;
 		}
 
-		if (selectedIndex != -1) {
-			audioPlayer.stop();
-			songFilePos = selectedIndex;
-			loadAndPlayNewSong();
-			updateSelectedSongAppearance(selectedIndex);
+		JList<String> playlist = new JList<>(songNames);
+		playlist.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
+		playlist.setForeground(Color.WHITE);
+		playlist.setBackground(new Color(0x191414));
+		playlist.setFont(new Font("", Font.BOLD, 15));
 
-			String songFilePath = songFileList.get(songFilePos).getPath();
-			String songTitle = getSongTitleFromDatabase(songFilePath);
-			String songArtist = getSongArtistFromDatabase(songFilePath);
+		playlist.setCellRenderer(new DefaultListCellRenderer() {
+			@Override
+			public Component getListCellRendererComponent(JList<?> list, Object value, int index, boolean isSelected,
+					boolean cellHasFocus) {
+				String[] parts = ((String) value).split(" - ");
 
-			titleLabel.setText(songTitle);
-			artistLabel.setText(songArtist);
+				JLabel titleLabel = new JLabel(parts[0]);
+				titleLabel.setForeground(Color.WHITE);
+				titleLabel.setFont(new Font("", Font.BOLD, 15));
+
+				JLabel artistLabel = new JLabel(parts[1]);
+				artistLabel.setForeground(Color.GRAY);
+				artistLabel.setFont(new Font("", Font.PLAIN, 12));
+
+				JPanel panel = new JPanel(new BorderLayout());
+				panel.add(titleLabel, BorderLayout.NORTH);
+				panel.add(artistLabel, BorderLayout.SOUTH);
+
+				if (isSelected) {
+					panel.setBackground(Color.BLACK);
+				} else {
+					panel.setBackground(new Color(0x191414));
+				}
+
+				return panel;
+			}
+		});
+
+		JScrollPane scrollPane = new JScrollPane(playlist);
+		scrollPane.setPreferredSize(new Dimension(400, 200));
+
+		UIManager.put("OptionPane.background", new ColorUIResource(0x191414));
+		UIManager.put("Panel.background", new ColorUIResource(0x191414));
+
+		int result = JOptionPane.showOptionDialog(
+				this,
+				scrollPane,
+				"Open Playlist",
+				JOptionPane.OK_CANCEL_OPTION,
+				JOptionPane.PLAIN_MESSAGE,
+				null,
+				null,
+				null);
+
+		if (result == JOptionPane.OK_OPTION) {
+			int selectedIndex = playlist.getSelectedIndex();
+			if (selectedIndex != -1) {
+				audioPlayer.stop();
+				songFilePos = selectedIndex;
+				loadAndPlayNewSong();
+				updateSelectedSongAppearance(selectedIndex);
+
+				String songFilePath = songFileList.get(songFilePos).getPath();
+				String songTitle = getSongTitleFromDatabase(songFilePath);
+				String songArtist = getSongArtistFromDatabase(songFilePath);
+
+				titleLabel.setText(songTitle);
+				artistLabel.setText(songArtist);
+			}
 		}
 	}
 
