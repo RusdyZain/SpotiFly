@@ -2,6 +2,7 @@ import javax.swing.*;
 import javax.swing.event.ListSelectionEvent;
 import javax.swing.event.ListSelectionListener;
 import javax.swing.filechooser.*;
+import javax.swing.plaf.ColorUIResource;
 import java.awt.*;
 import java.awt.event.*;
 import java.io.*;
@@ -54,6 +55,9 @@ public class MusicPlayer extends JFrame implements ActionListener {
 	private JLabel imageLabel;
 	private JLabel titleLabel;
 	private JLabel artistLabel;
+	JMenuItem loginMenuItem;
+	private JMenuItem openPlaylistMenuItem;
+	private boolean isLoggedIn;
 
 	public class DatabaseConnection {
 		private static final String URL = "jdbc:mysql://localhost:3306/sportifly";
@@ -101,6 +105,7 @@ public class MusicPlayer extends JFrame implements ActionListener {
 		super("SpotiFly");
 		setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
 		setLayout(null);
+		isLoggedIn = false;
 
 		songFileList = new ArrayList<>();
 		fileChooser = new JFileChooser(".");
@@ -162,7 +167,6 @@ public class MusicPlayer extends JFrame implements ActionListener {
 		buttonPanel.add(playButton);
 		buttonPanel.add(nextButton);
 		buttonPanel.add(loopButton);
-
 		add(buttonPanel);
 
 		songList = new JList<>();
@@ -225,8 +229,19 @@ public class MusicPlayer extends JFrame implements ActionListener {
 		progressBar.setBounds(50, 698, 400, 5);
 		progressBar.setForeground(Color.WHITE);
 		progressBar.setBackground(new Color(0x191414));
-
 		add(progressBar);
+
+		progressBar.addMouseListener(new MouseAdapter() {
+			@Override
+			public void mouseClicked(MouseEvent e) {
+				int mouseX = e.getX();
+				int progressBarWidth = progressBar.getWidth();
+				long newPosition = (long) ((double) mouseX / progressBarWidth
+						* audioPlayer.getClip().getMicrosecondLength());
+				audioPlayer.playFromPosition(newPosition);
+				progressBar.setValue((int) newPosition);
+			}
+		});
 
 		currentTimeLabel = new JLabel();
 		currentTimeLabel.setBounds(50, 705, 50, 20);
@@ -256,18 +271,26 @@ public class MusicPlayer extends JFrame implements ActionListener {
 		setResizable(false);
 		setVisible(true);
 
-		File firstSong = new File("Music/1.wav");
-		songFileList.add(firstSong);
-		numSongs = songFileList.size();
-
-		try {
-			audioPlayer.load(firstSong.getPath());
-		} catch (Exception e) {
-			e.printStackTrace();
-		}
-
 		Font externalFont = loadExternalFont("Font\\GothamBold.ttf", 16f);
 		setUIFont(externalFont);
+
+		JMenuBar menuBar = new JMenuBar();
+		menuBar.setBackground(Color.BLACK);
+		setJMenuBar(menuBar);
+
+		JMenu fileMenu = new JMenu();
+		menuBar.add(fileMenu);
+
+		ImageIcon fileIcon = new ImageIcon("pngs/Menu.png");
+		fileMenu.setIcon(fileIcon);
+
+		openPlaylistMenuItem = new JMenuItem("Open Playlist");
+		openPlaylistMenuItem.addActionListener(this);
+		fileMenu.add(openPlaylistMenuItem);
+
+		loginMenuItem = new JMenuItem("Login");
+		loginMenuItem.addActionListener(this);
+		fileMenu.add(loginMenuItem);
 
 		updateSelectedSongAppearance(songFilePos);
 	}
@@ -289,6 +312,141 @@ public class MusicPlayer extends JFrame implements ActionListener {
 		if (event.getSource() == shuffleButton) {
 			shuffle();
 		}
+		if (event.getSource() == openPlaylistMenuItem) {
+			showPlaylistPopup();
+		}
+		if (event.getActionCommand().equals("Login")) {
+			openLoginDialog();
+		}
+		if (event.getActionCommand().equals("Logout")) {
+			logout();
+		}
+	}
+
+	private void logout() {
+		isLoggedIn = false;
+		loginMenuItem.setText("Login");
+		isLooping = false;
+		isShuffle = false;
+
+		if (audioPlayer != null) {
+			audioPlayer.stop();
+		}
+
+		playButton.setIcon(playIcon);
+		progressBar.setValue(0);
+		currentTimeLabel.setText("0:00");
+		totalTimeLabel.setText("0:00");
+		currentSongLabel.setText("");
+
+		if (songList != null) {
+			songList.clearSelection();
+		}
+
+		songFileList.clear();
+		loadSongsFromDatabase();
+
+		JOptionPane.showMessageDialog(this, "Logout successful!");
+	}
+
+	public void closeMediaPlayer() {
+		dispose();
+	}
+
+	private void showPlaylistPopup() {
+		String[] songNames = new String[numSongs];
+
+		for (int i = 0; i < numSongs; i++) {
+			String songTitle = getSongTitleFromDatabase(songFileList.get(i).getPath());
+			String artistName = getSongArtistFromDatabase(songFileList.get(i).getPath());
+			songNames[i] = songTitle + " - " + artistName;
+		}
+
+		JList<String> playlist = new JList<>(songNames);
+		playlist.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
+		playlist.setForeground(Color.WHITE);
+		playlist.setBackground(new Color(0x191414));
+		playlist.setFont(new Font("", Font.BOLD, 15));
+
+		playlist.setCellRenderer(new DefaultListCellRenderer() {
+			@Override
+			public Component getListCellRendererComponent(JList<?> list, Object value, int index, boolean isSelected,
+					boolean cellHasFocus) {
+				String[] parts = ((String) value).split(" - ");
+
+				JLabel titleLabel = new JLabel(parts[0]);
+				titleLabel.setForeground(Color.WHITE);
+				titleLabel.setFont(new Font("", Font.BOLD, 15));
+
+				JLabel artistLabel = new JLabel(parts[1]);
+				artistLabel.setForeground(Color.GRAY);
+				artistLabel.setFont(new Font("", Font.PLAIN, 12));
+
+				JPanel panel = new JPanel(new BorderLayout());
+				panel.add(titleLabel, BorderLayout.NORTH);
+				panel.add(artistLabel, BorderLayout.SOUTH);
+
+				if (isSelected) {
+					panel.setBackground(Color.BLACK);
+				} else {
+					panel.setBackground(new Color(0x191414));
+				}
+
+				return panel;
+			}
+		});
+
+		JScrollPane scrollPane = new JScrollPane(playlist);
+		scrollPane.setPreferredSize(new Dimension(400, 200));
+
+		UIManager.put("OptionPane.background", new ColorUIResource(0x191414));
+		UIManager.put("Panel.background", new ColorUIResource(0x191414));
+
+		int result = JOptionPane.showOptionDialog(
+				this,
+				scrollPane,
+				"Open Playlist",
+				JOptionPane.OK_CANCEL_OPTION,
+				JOptionPane.PLAIN_MESSAGE,
+				null,
+				null,
+				null);
+
+		if (result == JOptionPane.OK_OPTION) {
+			int selectedIndex = playlist.getSelectedIndex();
+			if (selectedIndex != -1) {
+				audioPlayer.stop();
+				songFilePos = selectedIndex;
+				loadAndPlayNewSong();
+				updateSelectedSongAppearance(selectedIndex);
+
+				String songFilePath = songFileList.get(songFilePos).getPath();
+				String songTitle = getSongTitleFromDatabase(songFilePath);
+				String songArtist = getSongArtistFromDatabase(songFilePath);
+
+				titleLabel.setText(songTitle);
+				artistLabel.setText(songArtist);
+			}
+		}
+	}
+
+	private String getSongTitleFromDatabase(String filePath) {
+		String title = "";
+		try (Connection connection = new DatabaseConnection().getConnection()) {
+			String query = "SELECT title FROM songs WHERE file_path = ?";
+			try (PreparedStatement preparedStatement = connection.prepareStatement(query)) {
+				preparedStatement.setString(1, filePath.replace("\\", "/"));
+
+				try (ResultSet resultSet = preparedStatement.executeQuery()) {
+					if (resultSet.next()) {
+						title = resultSet.getString("title");
+					}
+				}
+			}
+		} catch (SQLException e) {
+			e.printStackTrace();
+		}
+		return title;
 	}
 
 	private void updateSelectedSongAppearance(int selectedIdx) {
@@ -328,38 +486,37 @@ public class MusicPlayer extends JFrame implements ActionListener {
 	private void togglePlay(int i) {
 		System.out.println("Toggle Play: " + i);
 		System.out.println("Is Paused: " + isPaused);
-		if (audioPlayer != null && audioPlayer.getClip() != null) {
-			if (audioPlayer.isRunning()) {
-				audioPlayer.stop();
-				isPaused = true;
-				playButton.setIcon(playIcon);
-			} else {
-				if (!isPaused) {
-					if (audioPlayer.getClip() != null) {
-						if (isShuffle) {
-							songFilePos = i;
-						}
-						loadAndPlayNewSong();
-						startTimer();
-						playButton.setIcon(pauseIcon);
-						currentlyPlayingIndex = i;
-						isPaused = false;
-					}
-				} else {
-					audioPlayer.resume();
-					playButton.setIcon(pauseIcon);
-				}
-			}
 
+		boolean isSongPlaying = audioPlayer != null && audioPlayer.isRunning();
+
+		if (isSongPlaying) {
+			audioPlayer.stop();
+			isPaused = true;
+			playButton.setIcon(playIcon);
+		} else {
 			if (!isPaused) {
-				updateSelectedSongAppearance(i);
+				if (numSongs > 0) {
+					songFilePos = 0;
+					loadAndPlayNewSong();
+					startTimer();
+					playButton.setIcon(pauseIcon);
+					currentlyPlayingIndex = 0;
+					isPaused = false;
+				}
 			} else {
-				i = currentlyPlayingIndex;
+				audioPlayer.resume();
+				playButton.setIcon(pauseIcon);
 			}
-
-			System.out.println("Last Valid Position: " + audioPlayer.getLastValidPosition());
-			System.out.println("Is Paused: " + isPaused);
 		}
+
+		if (!isPaused) {
+			updateSelectedSongAppearance(songFilePos);
+		} else {
+			updateSelectedSongAppearance(currentlyPlayingIndex);
+		}
+
+		System.out.println("Last Valid Position: " + audioPlayer.getLastValidPosition());
+		System.out.println("Is Paused: " + isPaused);
 	}
 
 	private void next() {
@@ -453,24 +610,73 @@ public class MusicPlayer extends JFrame implements ActionListener {
 	}
 
 	private void toggleLoop() {
-		isLooping = !isLooping;
-		audioPlayer.setLoop(isLooping);
-		loopButton.setIcon(isLooping ? loopIcon : unloopIcon);
+		if (isLoggedIn) {
+			isLooping = !isLooping;
+			audioPlayer.setLoop(isLooping);
+			loopButton.setIcon(isLooping ? loopIcon : unloopIcon);
 
-		System.out.println("Toggle Looping: " + isLooping);
+			System.out.println("Toggle Looping: " + isLooping);
+		} else {
+			JOptionPane.showMessageDialog(this, "Please login to use this feature.");
+		}
+
 	}
 
 	private void shuffle() {
-		isShuffle = !isShuffle;
-		audioPlayer.stop();
-		Random rand = new Random();
-		shuffleButton.setIcon(isShuffle ? unShuffleIcon : shuffleIcon);
-		songFilePos = rand.nextInt(numSongs);
-		currentlyPlayingIndex = songFilePos;
-		loadAndPlayNewSong();
+		if (isLoggedIn) {
+			isShuffle = !isShuffle;
+			audioPlayer.stop();
+			Random rand = new Random();
+			shuffleButton.setIcon(isShuffle ? unShuffleIcon : shuffleIcon);
+			songFilePos = rand.nextInt(numSongs);
+			currentlyPlayingIndex = songFilePos;
+			loadAndPlayNewSong();
 
-		System.out.println("Toggle Shuffle: " + isShuffle);
-		System.out.println("Shuffled Song: " + songFileList.get(songFilePos).getName());
+			System.out.println("Toggle Shuffle: " + isShuffle);
+			System.out.println("Shuffled Song: " + songFileList.get(songFilePos).getName());
+		} else {
+			JOptionPane.showMessageDialog(this, "Please login to use this feature.");
+		}
+	}
+
+	private boolean checkLogin(String username, String password) {
+		try {
+			Class.forName("com.mysql.cj.jdbc.Driver");
+
+			String url = "jdbc:mysql://localhost:3306/sportifly";
+			String user = "root";
+			String dbPassword = "";
+			try (Connection connection = DriverManager.getConnection(url, user, dbPassword)) {
+				String sql = "SELECT * FROM user WHERE username = ? AND password = ?";
+				try (PreparedStatement statement = connection.prepareStatement(sql)) {
+					statement.setString(1, username);
+					statement.setString(2, password);
+
+					try (ResultSet resultSet = statement.executeQuery()) {
+						return resultSet.next();
+					}
+				}
+			}
+		} catch (ClassNotFoundException | SQLException ex) {
+			ex.printStackTrace();
+			return false;
+		}
+	}
+
+	public void login(String username, String password) {
+		boolean isValidLogin = checkLogin(username, password);
+		if (isValidLogin) {
+			isLoggedIn = true;
+			loginMenuItem.setText("Logout");
+			JOptionPane.showMessageDialog(this, "Login successful!");
+		} else {
+			JOptionPane.showMessageDialog(this, "Invalid username or password. Please try again.");
+		}
+	}
+
+	private void openLoginDialog() {
+		LoginGUI loginDialog = new LoginGUI(this);
+		loginDialog.setVisible(true);
 	}
 
 	private void loadAndPlayNewSong() {
@@ -511,31 +717,12 @@ public class MusicPlayer extends JFrame implements ActionListener {
 		}
 	}
 
-	private String getSongTitleFromDatabase(String filePath) {
-		String title = "";
-		try (Connection connection = new DatabaseConnection().getConnection()) {
-			String query = "SELECT title FROM songs WHERE file_path = ?";
-			try (PreparedStatement preparedStatement = connection.prepareStatement(query)) {
-				preparedStatement.setString(1, filePath.replace("\\", "/"));
-
-				try (ResultSet resultSet = preparedStatement.executeQuery()) {
-					if (resultSet.next()) {
-						title = resultSet.getString("title");
-					}
-				}
-			}
-		} catch (SQLException e) {
-			e.printStackTrace();
-		}
-		return title;
-	}
-
 	private String getSongArtistFromDatabase(String filePath) {
 		String artist = "";
 		try (Connection connection = new DatabaseConnection().getConnection()) {
 			String query = "SELECT artist FROM songs WHERE file_path = ?";
 			try (PreparedStatement preparedStatement = connection.prepareStatement(query)) {
-				preparedStatement.setString(1, filePath.replace(File.separator, "/"));
+				preparedStatement.setString(1, filePath.replace("\\", "/"));
 
 				try (ResultSet resultSet = preparedStatement.executeQuery()) {
 					if (resultSet.next()) {
@@ -670,7 +857,6 @@ public class MusicPlayer extends JFrame implements ActionListener {
 		SwingUtilities.invokeLater(() -> {
 			MusicPlayer musicPlayer = new MusicPlayer();
 			try {
-				musicPlayer.loadSongsFromDatabase();
 				Font titleFont = musicPlayer.loadExternalFont("Font/GothamBold.ttf", 25f);
 				Font artistFont = musicPlayer.loadExternalFont("Font/GothamMedium.ttf", 14f);
 

@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: 127.0.0.1
--- Waktu pembuatan: 08 Des 2023 pada 10.39
+-- Waktu pembuatan: 19 Des 2023 pada 09.17
 -- Versi server: 10.4.28-MariaDB
 -- Versi PHP: 8.0.28
 
@@ -46,6 +46,27 @@ INSERT INTO `songs` (`id`, `title`, `artist`, `file_path`, `thumbnail`) VALUES
 (4, 'Blank Space', 'Taylor Swift', 'Music/4.wav', 'Music/Thumbnail/4.jpg'),
 (5, 'Top 10 Male Singers In One Song', 'Ed Sheeran, Shawn Mendes, Coldplay, Justin Bieber, Harry Stiles, Sam Smith...', 'Music/5.wav', 'Music/Thumbnail/5.jpg');
 
+-- --------------------------------------------------------
+
+--
+-- Struktur dari tabel `user`
+--
+
+CREATE TABLE `user` (
+  `id` int(11) NOT NULL,
+  `nama` varchar(255) NOT NULL,
+  `username` varchar(255) NOT NULL,
+  `password` varchar(255) NOT NULL,
+  `foto` varchar(255) NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Dumping data untuk tabel `user`
+--
+
+INSERT INTO `user` (`id`, `nama`, `username`, `password`, `foto`) VALUES
+(1, 'Rusdy', 'rusdy', '123', 'User/rusdy.jpg');
+
 --
 -- Indexes for dumped tables
 --
@@ -57,6 +78,12 @@ ALTER TABLE `songs`
   ADD PRIMARY KEY (`id`);
 
 --
+-- Indeks untuk tabel `user`
+--
+ALTER TABLE `user`
+  ADD PRIMARY KEY (`id`);
+
+--
 -- AUTO_INCREMENT untuk tabel yang dibuang
 --
 
@@ -64,7 +91,13 @@ ALTER TABLE `songs`
 -- AUTO_INCREMENT untuk tabel `songs`
 --
 ALTER TABLE `songs`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=6;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=26;
+
+--
+-- AUTO_INCREMENT untuk tabel `user`
+--
+ALTER TABLE `user`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
 COMMIT;
 
 /*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;
